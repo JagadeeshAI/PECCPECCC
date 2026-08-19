@@ -75,6 +75,14 @@ Every frontier-based navigation agent faces the same dilemma: it must decide whe
 Recent memory-augmented methods~\cite{huang20243dmem,yang2024ramem,wang2026memoryexplorer} have made impressive progress on the reasoning side of EQA, showing that richer memory representations lead to better answers. But these methods inherit whatever observations navigation provides. If the agent wastes steps exploring irrelevant rooms, the memory is impoverished no matter how sophisticated the retrieval. \emph{The quality of reasoning is bounded by the quality of search.}
 
 We introduce a simple mechanism that breaks this limitation: \emph{predict before you explore, then learn from your mistakes.} Before moving through a frontier, the agent uses a vision-language model to predict the semantic layout beyond it---what room type and object categories are likely to appear. After arriving, it compares this prediction against what it actually observes. The discrepancy, measured as KL divergence, produces a \emph{surprise signal} that reveals how well the agent understands the current environment. High surprise means the agent's model is miscalibrated; the rational response is to broaden exploration. Low surprise means the model has converged; the rational response is to narrow the search toward the goal. This exploration-exploitation shift emerges automatically from the surprise dynamics---no explicit scheduling, no environment-specific training.
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/in2.drawio.png}
+\caption{We propose PEC-Nav, a self-calibrating frontier search mechanism for Embodied Question Answering. The agent receives a natural language instruction, explores the environment via adaptive frontier-based search that learns from its own prediction errors, collects episodic memories during navigation, and answers follow-up questions by retrieving from stored observations.}
+\label{fig:architecture}
+\end{figure*}
+\subsection{Goal Extraction}
+\label{sec:problem}
 
 This predict-then-correct loop is made practical by the capabilities of modern vision-language models, which can produce meaningful semantic layout predictions from a single egocentric frontier view. Even when these predictions are imperfect---and they frequently are---the \emph{pattern of errors} is informative: systematic misprediction in one environment tells the agent something that no individual prediction can.
 
@@ -153,7 +161,7 @@ MemExplorer~\cite{wang2026memoryexplorer} & CVPR'26 & Multi & Frontier+LLM & $\t
 Given a natural language instruction, PEC-Nav extracts a structured navigation goal, explores the environment using a self-calibrating frontier search, stores observations in episodic memory, and answers follow-up questions from accumulated memory. Figure~\ref{fig:architecture} provides an overview.
 \begin{figure*}[t]                          ← HERE (line 156)
 \centering
-\includegraphics[width=\textwidth]{figures/pipeline.png}
+\includegraphics[width=\textwidth]{PEc-architecture.drawio.png}
 \caption{Overview of PEC-Nav. Phase 1:...}
 \label{fig:architecture}
 \end{figure*}
