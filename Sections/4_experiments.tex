@@ -1,75 +1,120 @@
 \section{Experiments}
 
-We evaluate PEC-Nav through four complementary analyses: a contextual comparison against published methods, a controlled comparison isolating the search module, ablation studies quantifying each component's contribution, and a self-calibration analysis providing direct evidence of within-episode adaptation.
+\textcolor{red}{We evaluate PEC-Nav through five analyses: a controlled comparison in which only the search module varies, a contextual positioning against published results, ablations isolating each component and each feedback path, a stratification by the number of landmarks in the instruction, and a direct measurement of calibration behaviour.}
+
+\newcommand{\plotbox}[1]{%
+  \fbox{\parbox[c][#1][c]{0.96\columnwidth}{\centering\textcolor{red}{\textsc{plot placeholder}}}}%
+}
+\newcommand{\plotboxw}[1]{%
+  \fbox{\parbox[c][#1][c]{0.97\textwidth}{\centering\textcolor{red}{\textsc{plot placeholder}}}}%
+}
+
+\textcolor{red}{Throughout this section, values in \textcolor{blue}{blue} are reproduced from published work~\cite{wang2026memoryexplorer,khanna2024goatbench} and were not measured by us. Entries marked \textbf{XX} are our own results, pending final measurement; \texttt{--} marks a quantity not yet computed.}
 
 \subsection{Setup}
 
 \paragraph{Dataset.} All experiments use the GOAT-Bench Val Unseen split~\cite{khanna2024goatbench}: 36 HM3D scenes, 345 episodes with description-type goals (15 of 360 excluded for missing valid descriptions). We evaluate exclusively on description goals, harder than category goals and requiring natural language understanding and spatial reasoning.
 
-\paragraph{Metrics.} \textbf{Success Rate (SR)}: fraction of episodes where the agent finds the target (1.0\,m threshold). \textbf{SPL}~\cite{anderson2018spl}: success weighted by path efficiency, with failures contributing 0. We report both by-snapshot (all 345 episodes) and by-distance (stratified by geodesic distance to target) variants.
+\textcolor{red}{\paragraph{Landmark extraction.} Each description goal is parsed into a target and an ordered landmark sequence (Sec.~\ref{sec:problem}). We write $m$ for the number of landmarks recovered from an instruction. Table~\ref{tab:stats} reports the distribution of $m$ over the evaluation set; no additional annotation is introduced, since the relational context is already present in the goal descriptions.}
+
+\paragraph{Metrics.} \textbf{Success Rate (SR)}: fraction of episodes where the agent finds the target (1.0\,m threshold). \textbf{SPL}~\cite{anderson2018spl}: success weighted by path efficiency, with failures contributing 0. \textcolor{red}{We additionally report \textbf{PE}$_{\text{succ}}$, the mean path efficiency computed over successful episodes only. This is not comparable to SPL across methods and is reported solely to separate the cost of exploration from the cost of failure.}
 
 \paragraph{Hardware.} Qwen3-VL-4B-Instruct in bf16 on a single RTX 3090 (24\,GB). Goal extraction via GPT-4o API. No multi-GPU inference, no closed-source VLM for navigation.
 
-\subsection{Contextual Comparison}
-
-Table~\ref{tab:context} situates PEC-Nav against published GOAT-Bench results. An important caveat: most baselines report subtask-level metrics across all goal modalities in multi-goal episodes (5--10 subtasks); we report episode-level metrics on description goals only, a strictly harder setting.
-
-Despite this disadvantage and using a 4B-parameter model, PEC-Nav achieves 29.74\% SR and 20.88 SPL. The SR is competitive with SenseAct Skill Chain (29.5\%), which uses an RL policy trained on in-domain data. The SPL of 20.88 is the highest among all zero-shot methods, nearly double that of VLMNav (6.6) and DyNaVLM (10.2), both of which use GPT-4V ($\sim$1.8T parameters). This suggests that \emph{adapting search online} matters more than \emph{scaling the model}.
-
-\subsection{Controlled Comparison}
-
-The contextual comparison cannot isolate PEC-Nav's contribution due to differences in evaluation protocol and model backbone. Table~\ref{tab:context} presents the definitive test: same pipeline, same Qwen3-VL-4B model, same 345 episodes, same goal extraction, same memory, same QA; only the search module varies. The baseline uses SCOPE's static frontier scoring; PEC-Nav adds the predict-explore-correct loop.
-
-Any difference in SR or SPL is therefore attributable \emph{solely} to self-calibrating search.
-
-\begin{table*}[t]
+\textcolor{red}{
+\begin{table}[H]
 \centering
-\caption{Results on LMEE-Bench (GOAT-Bench Val Unseen), stratified by episode difficulty. \textbf{Nav} reports navigation Success Rate (SR, \%) and SPL; \textbf{QA} reports the MLLM-Score for open-ended answers and the accuracy (Acc, \%) of multiple-choice answers. $\dagger$: results reported by~\cite{wang2026memoryexplorer}.}
-\label{tab:context}
+\caption{\textcolor{red}{Evaluation set statistics by landmark count $m$.}}
+\label{tab:stats}
 \vspace{1mm}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lcccccccccccccccc}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lccccc@{}}
 \toprule
-& \multicolumn{4}{c}{\textbf{Easy}} & \multicolumn{4}{c}{\textbf{Medium}} & \multicolumn{4}{c}{\textbf{Hard}} & \multicolumn{4}{c}{\textbf{Total}} \\
-\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13} \cmidrule(lr){14-17}
-& \multicolumn{2}{c}{Nav} & \multicolumn{2}{c}{QA} & \multicolumn{2}{c}{Nav} & \multicolumn{2}{c}{QA} & \multicolumn{2}{c}{Nav} & \multicolumn{2}{c}{QA} & \multicolumn{2}{c}{Nav} & \multicolumn{2}{c}{QA} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13} \cmidrule(lr){14-15} \cmidrule(lr){16-17}
-\textbf{Method} & SR & SPL & Score & Acc & SR & SPL & Score & Acc & SR & SPL & Score & Acc & SR & SPL & Score & Acc \\
+\textbf{Statistic} & $m=0$ & $m=1$ & $m=2$ & $m\ge3$ & \textbf{All} \\
 \midrule
-\multicolumn{17}{l}{\emph{Retrieval-Augmented QA}} \\
-LLaVA-OneVision-7B$^\dagger$ & -- & -- & 35.71 & 57.14 & -- & -- & 42.02 & 62.77 & -- & -- & 25.00 & 43.75 & -- & -- & 38.62 & 59.31 \\
-Llama3.2-Vision-11B$^\dagger$ & -- & -- & 43.57 & 48.57 & -- & -- & 28.19 & 37.23 & -- & -- & 20.31 & 31.25 & -- & -- & 31.03 & 39.31 \\
-Qwen2.5-VL-7B$^\dagger$ & -- & -- & 36.43 & 65.71 & -- & -- & 43.62 & 53.19 & -- & -- & 42.19 & 43.75 & -- & -- & 41.72 & 55.86 \\
-InternVL3-8B$^\dagger$ & -- & -- & 42.14 & 65.71 & -- & -- & 41.22 & 54.26 & -- & -- & 26.56 & 43.75 & -- & -- & 39.83 & 55.17 \\
-Qwen3-VL-8B$^\dagger$~\cite{bai2025qwen3} & -- & -- & 43.57 & 65.71 & -- & -- & 36.70 & 58.51 & -- & -- & 32.81 & 62.50 & -- & -- & 37.93 & 60.69 \\
-GPT-4o$^\dagger$~\cite{openai2024gpt4o} & -- & -- & 43.57 & 65.71 & -- & -- & 37.50 & 51.06 & -- & -- & 40.62 & 56.25 & -- & -- & 39.31 & 55.17 \\
-Gemini-2.5-Flash$^\dagger$ & -- & -- & 37.77 & 51.43 & -- & -- & 37.77 & 50.00 & -- & -- & 23.44 & 50.00 & -- & -- & 37.76 & 50.34 \\
-\midrule
-\multicolumn{17}{l}{\emph{MLLM Exploration}} \\
-Explore-EQA$^\dagger$~\cite{ren2024exploreeqa} & 4.26 & 4.29 & -- & -- & 15.17 & 8.67 & -- & -- & 14.89 & 7.25 & -- & -- & 13.24 & 7.66 & -- & -- \\
-3D-Mem$^\dagger$~\cite{huang20243dmem} & 21.28 & 9.68 & 30.71 & 42.86 & 15.73 & 6.09 & 34.57 & 44.68 & 17.02 & 6.97 & 25.00 & 18.75 & 16.91 & 6.86 & 32.59 & 41.38 \\
-RA-Mem$^\dagger$~\cite{yang2024ramem} & 25.53 & 15.65 & 34.29 & 54.29 & 21.35 & 12.14 & 37.77 & 62.77 & 14.89 & 8.86 & 25.00 & 18.75 & 20.96 & 12.18 & 35.52 & 58.62 \\
-MemoryExplorer$^\dagger$~\cite{wang2026memoryexplorer} & 31.91 & 21.11 & 35.71 & 68.57 & 21.35 & 14.03 & 48.14 & 63.83 & 23.40 & 12.51 & 34.38 & 68.75 & 23.53 & 14.99 & 43.62 & 65.52 \\
-\midrule
-\textbf{PEC-Nav (Ours)} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{XX.XX} & \textbf{29.74} & \textbf{20.88} & \textbf{XX.XX} & \textbf{XX.XX} \\
+Episodes & -- & -- & -- & -- & 345 \\
+Mean geodesic dist.\ (m) & -- & -- & -- & -- & -- \\
+Mean corrections fired & -- & -- & -- & -- & -- \\
 \bottomrule
 \end{tabular}%
 }
-\end{table*}
+\end{table}
+}
+
+\subsection{\textcolor{red}{Controlled Comparison}}
+
+\textcolor{red}{Table~\ref{tab:main} is the primary result. Every row uses the same pipeline, the same Qwen3-VL-4B backbone, the same 345 episodes, the same goal and landmark extraction, and the same memory and question-answering modules. Only the frontier search module differs. Rows 1 and 2 establish what geometry alone achieves; row 3 adds static semantic scoring; row 4 adds landmark-conditioned prediction without verification; row 5 closes the loop. Any difference in SR or SPL is therefore attributable solely to search.}
+
+\textcolor{red}{
+\begin{table}[H]
+\centering
+\caption{\textcolor{red}{Controlled comparison on 345 description-goal episodes. Identical pipeline throughout; only the search module varies. \textbf{Corr.}: mean corrections fired per episode. \textbf{Ver.}: landmark verification rate (\%).}}
+\label{tab:main}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+& \textbf{Search module} & \textbf{SR} $\uparrow$ & \textbf{SPL} $\uparrow$ & \textbf{PE}$_{\text{succ}}$ & \textbf{Steps} & \textbf{Corr.} & \textbf{Ver.} \\
+\midrule
+1 & Random frontier & -- & -- & -- & -- & --- & --- \\
+2 & Nearest frontier~\cite{yamauchi1997frontier} & -- & -- & -- & -- & --- & --- \\
+3 & Static semantic~\cite{wang2026scope} & -- & -- & -- & -- & --- & --- \\
+4 & \quad + prediction, no correction & XX & -- & -- & -- & 0 & --- \\
+\midrule
+5 & \textbf{PEC-Nav (full loop)} & \textbf{XX} & \textbf{XX} & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+}
+
+\subsection{Contextual Positioning}
+
+\textcolor{red}{Table~\ref{tab:context} places PEC-Nav beside published results on the same split. These methods address multi-goal navigation, in which every object named in the instruction is a terminal goal, whereas our episodes succeed on the target alone. The numbers are reproduced from~\cite{wang2026memoryexplorer} for context and are \emph{not} a head-to-head comparison; the \textbf{Task} and \textbf{Train} columns record the differences that prevent one. We note in particular that PEC-Nav operates without training of any kind and with the smallest backbone in the table, and that its SPL is compared against the RL-trained skill chain in the same column.}
+
+\textcolor{red}{
+\begin{table}[H]
+\centering
+\caption{\textcolor{red}{Published results on GOAT-Bench Val Unseen, reported for context. $*$: GOAT-Bench baselines~\cite{khanna2024goatbench}. $\dagger$: evaluated on a 36-scene subset. Task definitions differ from ours, so rows are not directly comparable.}}
+\label{tab:context}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llllcc@{}}
+\toprule
+\textbf{Method} & \textbf{Task} & \textbf{Train} & \textbf{Backbone} & \textbf{SR} & \textbf{SPL} \\
+\midrule
+Modular GOAT$^*$ & multi-goal & in-domain & modular & \textcolor{blue}{24.9} & \textcolor{blue}{17.2} \\
+Modular CoW$^*$~\cite{gadre2023cow} & multi-goal & none & CLIP & \textcolor{blue}{16.1} & \textcolor{blue}{10.4} \\
+SenseAct-NN Skill Chain$^*$ & multi-goal & RL & --- & \textcolor{blue}{29.5} & \textcolor{blue}{11.3} \\
+SenseAct-NN Monolithic$^*$ & multi-goal & RL & --- & \textcolor{blue}{12.3} & \textcolor{blue}{6.8} \\
+\midrule
+Explore-EQA$^\dagger$~\cite{ren2024exploreeqa} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{23.02} & \textcolor{blue}{14.43} \\
+3D-Mem$^\dagger$~\cite{huang20243dmem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{37.05} & \textcolor{blue}{20.26} \\
+RA-Mem$^\dagger$~\cite{yang2024ramem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{42.81} & \textcolor{blue}{21.95} \\
+MemoryExplorer$^\dagger$~\cite{wang2026memoryexplorer} & multi-goal & RFT & Qwen2.5-VL-7B & \textcolor{blue}{46.40} & \textcolor{blue}{28.03} \\
+\midrule
+\textbf{PEC-Nav (Ours)} & landmark-cond. & \textbf{none} & \textbf{Qwen3-VL-4B} & \textbf{XX} & \textbf{XX} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+}
 
 \subsection{Ablation Studies}
 
-\paragraph{The correction loop is everything.} Table~\ref{tab:ablation_all}a presents the sharpest result in this paper. In an early implementation, a coordinate-frame mismatch between the Habitat localizer and the TSDF frontier map caused arrival detection (Eq.~\ref{eq:arrival}) to almost never fire. The predictor ran, predictions were stored, but the CORRECT phase never triggered, so surprise was never computed, $\sigma_t$ never updated, and $w_e$/$w_g$ never shifted. The agent operated with a static predictor layered on SCOPE: \emph{strictly more computation, no adaptation.}
+\paragraph{The correction loop is everything.} Table~\ref{tab:ablation_all}a isolates the CORRECT phase: both rows share an identical configuration, and differ only in whether arrival detection (Eq.~\ref{eq:arrival}) fires. With correction disabled, the predictor still runs and predictions are still stored, but surprise is never computed, $\sigma_t$ never updates, and $w_e$/$w_g$ never shift. The agent operates with a static predictor layered on static scoring: \emph{strictly more computation, no adaptation.}
 
-Result: 12.75\% SR, \emph{worse} than SCOPE alone. The predictor without correction is not merely unhelpful; it actively hurts. Fixing the coordinate frame so correction fires reliably produces a \textbf{133\% relative improvement} (12.75\% $\rightarrow$ 29.74\%). This is the cleanest possible evidence that prediction errors, not predictions, are the operative signal.
+Result: XX\% SR, \emph{worse} than static scoring alone. The predictor without correction is not merely unhelpful; it actively hurts. Enabling correction produces a \textbf{XX\% relative improvement} (XX\% $\rightarrow$ XX\%). This is the cleanest evidence that prediction errors, not predictions, are the operative signal.
 
-\paragraph{Component ablation.} Table~\ref{tab:ablation_all}b cumulatively adds each component to the SCOPE baseline. Each addition is expected to contribute: goal extraction provides richer targets, the predictor adds layout-level signal, uncertainty-aware selection introduces adaptivity, and the corrector closes the loop.
+\paragraph{Component ablation.} Table~\ref{tab:ablation_all}b cumulatively adds each component to the static baseline.
 
-\paragraph{Self-calibration dynamics.} Table~\ref{tab:ablation_all}c directly measures whether the agent calibrates within an episode. We extract $\sigma_t$, $w_e$, $w_g$, prediction accuracy, and mean surprise from correction logs, comparing the first 5 corrections (episode start) against the last 5 (episode end) for episodes with $\ge$10 corrections. If self-calibration works as designed, prediction accuracy should rise, surprise should fall, $\sigma_t$ should decrease from its initial 1.0, and exploration weight should increase, a behavioral shift emerging from surprise dynamics alone.
+\textcolor{red}{\paragraph{Which feedback path carries the effect.} Surprise drives two distinct adjustments: it rescales predictor confidence through $\sigma_t$ (Eq.~\ref{eq:adapt}), and it reweights the frontier value function through $w_e$ and $w_g$ (Eq.~\ref{eq:calibrate}). Table~\ref{tab:feedback} enables each path independently to determine which is responsible for the gain.}
+
+\textcolor{red}{\paragraph{Effect of landmark count.} Each landmark is a verification opportunity, so instructions carrying more landmarks should yield more correction events and better-calibrated search. Table~\ref{tab:landmark} stratifies the evaluation set by $m$, and Fig.~\ref{fig:landmark} plots the margin over the static baseline as $m$ grows.}
 
 \begin{table}[H]
 \centering
-\caption{Ablation results. (a)~Correction: same configuration, only CORRECT phase differs. (b)~Components added cumulatively to SCOPE. (c)~Calibration metrics at episode start vs.\ end.}
+\caption{Ablation results. (a)~Correction: same configuration, only the CORRECT phase differs. (b)~Components added cumulatively to the static baseline.}
 \label{tab:ablation_all}
 \vspace{1mm}
 
@@ -79,8 +124,8 @@ Result: 12.75\% SR, \emph{worse} than SCOPE alone. The predictor without correct
 \toprule
 \textbf{Variant} & \textbf{SR (\%)} $\uparrow$ & \textbf{N} & \textbf{Rel. $\Delta$} \\
 \midrule
-Predict only (no correction) & 12.75 & 345 & --- \\
-\textbf{Full PEC loop (ours)} & \textbf{29.74} & 343 & \textbf{+133\%} \\
+Predict only (no correction) & XX & 345 & --- \\
+\textbf{Full PEC loop (ours)} & \textbf{XX} & 345 & \textbf{XX} \\
 \bottomrule
 \end{tabular}%
 }
@@ -92,37 +137,152 @@ Predict only (no correction) & 12.75 & 345 & --- \\
 \toprule
 \textbf{Configuration} & \textbf{SR (\%)} $\uparrow$ & \textbf{SPL} $\uparrow$ & $\Delta$\textbf{SR} \\
 \midrule
-SCOPE baseline & --- & --- & --- \\
-\quad + Goal extraction & --- & --- & +--- \\
-\quad + Semantic predictor & --- & --- & +--- \\
-\quad + Uncertainty selection & --- & --- & +--- \\
-\quad \textbf{+ Online correction (full)} & \textbf{29.74} & \textbf{20.88} & \textbf{+---} \\
-\bottomrule
-\end{tabular}%
-}
-
-\vspace{1mm}
-\textbf{(c) Within-episode calibration} \\[1pt]
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Metric} & \textbf{Start (first 5)} & \textbf{End (last 5)} \\
-\midrule
-Prediction accuracy (\%) & --- & --- \\
-Mean surprise (KL) & --- & --- \\
-$\sigma_t$ (confidence) & 1.0 & --- \\
-$w_e$ (exploration wt.) & 0.30 & --- \\
-$w_g$ (goal wt.) & 0.20 & --- \\
+Static baseline & -- & -- & --- \\
+\quad + Goal extraction & -- & -- & -- \\
+\textcolor{red}{\quad + Landmark parsing} & -- & -- & -- \\
+\quad + Semantic predictor & -- & -- & -- \\
+\quad + Uncertainty selection & -- & -- & -- \\
+\quad \textbf{+ Online correction (full)} & \textbf{XX} & \textbf{XX} & -- \\
 \bottomrule
 \end{tabular}%
 }
 \end{table}
 
+\textcolor{red}{
+\begin{table}[H]
+\centering
+\caption{\textcolor{red}{Feedback-path ablation. Each path is enabled independently; all other settings are identical.}}
+\label{tab:feedback}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Variant} & $\sigma_t$ & $w_e,w_g$ & \textbf{SR} $\uparrow$ & \textbf{SPL} $\uparrow$ & $\Delta$\textbf{SR} \\
+\midrule
+No correction & \xmark & \xmark & XX & -- & --- \\
+Confidence only & \cmark & \xmark & -- & -- & -- \\
+Reweighting only & \xmark & \cmark & -- & -- & -- \\
+\textbf{Full PEC loop} & \cmark & \cmark & \textbf{XX} & \textbf{XX} & -- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+}
+
+\textcolor{red}{
+\begin{table}[H]
+\centering
+\caption{\textcolor{red}{Performance stratified by the number of landmarks $m$ in the instruction, against the static baseline under identical conditions.}}
+\label{tab:landmark}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+& \multicolumn{2}{c}{$m=0$} & \multicolumn{2}{c}{$m=1$} & \multicolumn{2}{c}{$m=2$} & \multicolumn{2}{c}{$m\ge3$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+\textbf{Method} & SR & SPL & SR & SPL & SR & SPL & SR & SPL \\
+\midrule
+Static baseline & -- & -- & -- & -- & -- & -- & -- & -- \\
+\textbf{PEC-Nav} & -- & -- & -- & -- & -- & -- & -- & -- \\
+\midrule
+$\Delta$ & -- & -- & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+}
+
+\subsection{\textcolor{red}{Does the Agent Actually Calibrate?}}
+
+\textcolor{red}{The preceding results show that correction improves outcomes. This section asks whether the mechanism behaves as claimed. We extract $\sigma_t$, $w_e$, $w_g$, prediction accuracy, and per-correction KL from the correction logs of every episode.}
+
+\textcolor{red}{Figure~\ref{fig:calib} tracks these quantities against correction index. If self-calibration operates as designed, mean surprise should fall, prediction accuracy should rise, $\sigma_t$ should decrease from its initial value of 1.0, and $w_e$ should increase, a behavioural shift arising from surprise dynamics alone rather than from any explicit schedule.}
+
+\textcolor{red}{Figure~\ref{fig:reliability} makes the calibration claim quantitative. We bin predicted confidences and compare each bin against observed frequency, before and after correction, and report the expected calibration error (ECE) of each. A reduction in ECE establishes that the loop performs calibration in the precise sense of the term, not merely that it improves navigation.}
+
+\textcolor{red}{
+\begin{figure}[H]
+\centering
+\plotbox{5.0cm}
+\caption{\textcolor{red}{Calibration dynamics against correction index. Left axis: mean surprise $D_{\mathrm{KL}}$ and prediction accuracy. Right axis: $\sigma_t$ and $w_e$. Shaded bands are 95\% confidence intervals across episodes.}}
+\label{fig:calib}
+\end{figure}
+}
+
+\textcolor{red}{
+\begin{figure}[H]
+\centering
+\plotbox{4.6cm}
+\caption{\textcolor{red}{Reliability diagram for the semantic predictor, with and without the correction loop. Perfect calibration lies on the diagonal; ECE is reported for each curve.}}
+\label{fig:reliability}
+\end{figure}
+}
+
+\textcolor{red}{
+\begin{figure}[H]
+\centering
+\plotbox{4.4cm}
+\caption{\textcolor{red}{Success rate and SPL against the number of landmarks $m$, for PEC-Nav and the static baseline. The overlaid line is the margin $\Delta$SR.}}
+\label{fig:landmark}
+\end{figure}
+}
+
 \subsection{Analysis}
 
-\paragraph{Why SPL matters more than SR here.} PEC-Nav's overall SPL of 20.88 may appear modest, but it reflects the exploration cost during early episode steps when the agent's model is uncalibrated. The SPL restricted to successful episodes is \textbf{70.22}, meaning that once calibration converges, the agent navigates efficiently. This gap is \emph{predicted by the theory}: the PEC loop pays an upfront exploration cost that is amortized as surprise decreases and the agent shifts from broad exploration to targeted search.
+\textcolor{red}{\paragraph{Surprise is diagnostic.} Figure~\ref{fig:surprise} contrasts the distribution of per-episode mean surprise for successful and failed episodes. A separation between the two indicates that the agent holds an internal estimate of its own difficulty, which is what makes the signal usable for control rather than merely observable.}
 
-\paragraph{Small model, smart search.} PEC-Nav uses a 4B-parameter VLM on a single consumer GPU, yet matches or exceeds methods using GPT-4V ($\sim$1.8T parameters via API). The implication is practical: self-calibrating search is a compute-efficient alternative to model scaling. Rather than throwing a larger model at imperfect predictions, PEC-Nav detects and corrects prediction failures online.
+\paragraph{Why path efficiency matters here.} PEC-Nav's overall SPL of XX reflects the exploration cost incurred during early steps, while the agent's model is still uncalibrated. Path efficiency restricted to successful episodes is \textbf{XX}, indicating that once calibration converges the agent navigates efficiently. This gap is predicted by the mechanism: the PEC loop pays an upfront exploration cost that is amortised as surprise decreases and search narrows toward the target.
 
-\paragraph{The predictor alone hurts.} This is the most counterintuitive finding. Adding a semantic predictor to SCOPE \emph{without} the correction loop degrades SR from the SCOPE baseline to 12.75\%. The predictor's overconfident (and often wrong) layout predictions steer the agent toward frontiers that match the prediction rather than the reality. Only when the correction loop is active does the system learn which predictions to trust, transforming a liability into the system's greatest strength.
+\paragraph{Small model, adaptive search.} PEC-Nav uses a 4B-parameter VLM on a single consumer GPU without training of any kind. \textcolor{red}{Table~\ref{tab:compute} reports the cost of the correction loop itself, measured against the static baseline under identical conditions.} The implication is practical: adapting search online is a compute-efficient alternative to scaling the model or fine-tuning it on in-domain data.
 
+\paragraph{The predictor alone hurts.} This is the most counterintuitive finding. Adding a semantic predictor \emph{without} the correction loop degrades SR to XX\%. The predictor's overconfident and frequently wrong layout predictions steer the agent toward frontiers matching the prediction rather than the observation. Only when correction is active does the system learn which predictions to trust.
+
+\textcolor{red}{\paragraph{Where it fails.} Figure~\ref{fig:failure} decomposes unsuccessful episodes by cause. Figure~\ref{fig:qualitative} shows a representative trajectory in which early surprise is high, the agent broadens its search, and exploration narrows once the predictor recalibrates.}
+
+\textcolor{red}{
+\begin{table}[H]
+\centering
+\caption{\textcolor{red}{Cost of the correction loop, measured under identical conditions.}}
+\label{tab:compute}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Quantity (per episode)} & \textbf{Static baseline} & \textbf{PEC-Nav} \\
+\midrule
+VLM calls & -- & -- \\
+Navigation steps & -- & -- \\
+Wall-clock (s) & -- & -- \\
+Peak GPU memory (GB) & -- & -- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+}
+
+\textcolor{red}{
+\begin{figure}[H]
+\centering
+\plotbox{4.2cm}
+\caption{\textcolor{red}{Distribution of per-episode mean surprise, split by episode outcome.}}
+\label{fig:surprise}
+\end{figure}
+}
+
+\textcolor{red}{
+\begin{figure}[H]
+\centering
+\plotbox{4.2cm}
+\caption{\textcolor{red}{Failure decomposition: landmark mis-grounding, detector miss, exploration budget exhausted, localisation drift, and unreachable target.}}
+\label{fig:failure}
+\end{figure}
+}
+
+\textcolor{red}{
+\begin{figure*}[t]
+\centering
+\plotboxw{6.0cm}
+\caption{\textcolor{red}{Qualitative example. Top-down occupancy map with frontier selections coloured by surprise magnitude and landmark verifications marked as hits or misses, alongside egocentric views at four decision points.}}
+\label{fig:qualitative}
+\end{figure*}
+}
