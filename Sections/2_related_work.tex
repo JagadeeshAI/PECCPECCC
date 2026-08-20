@@ -1,0 +1,58 @@
+\section{Related Work}
+
+\subsection{Frontier-Based Navigation}
+
+Frontier-based exploration~\cite{yamauchi1997frontier} directs agents toward boundaries between explored and unexplored space. SemExp~\cite{chaplot2020semexp} learns a goal-conditioned policy over semantic maps. CoW~\cite{gadre2023cow} and VLFM~\cite{yokoyama2024vlfm} replace learned scorers with CLIP~\cite{radford2021clip} and VLM-based zero-shot frontier evaluation, respectively. ESC~\cite{zhou2023esc} adds LLM-derived commonsense constraints to frontier selection. SG-Nav~\cite{yin2024sgnav} reasons over online 3D scene graphs, and UniGoal~\cite{yin2025unigoal} unifies category, image, and text goals into a single evaluation mechanism. SCOPE~\cite{wang2026scope} introduces potential-based scoring with a spatio-temporal graph and a self-reconsideration mechanism for revisiting past decisions.
+
+All of these methods evaluate frontiers with a fixed function throughout the episode. Ours is the first to close the loop: predictions about unseen space are verified upon arrival, and the resulting error signal recalibrates both the predictor and the selection policy online.
+
+\subsection{Embodied Question Answering and Memory}
+
+EQA~\cite{das2018eqa} requires agents to navigate and gather evidence before answering. Explore-EQA~\cite{ren2024exploreeqa} demonstrated that VLM-guided frontier selection outperforms random exploration. GraphEQA~\cite{saxena2025grapheqa} and Fine-EQA~\cite{jiang2025fineeqa} improved reasoning through scene graphs and hybrid exploration, respectively. ToolEQA~\cite{wang2025tooleqa} augments agents with external tools for multi-step reasoning, while Memory-Centric EQA~\cite{zhai2025memorycentric} feeds memory signals back into the planner. CoV~\cite{cov2026} introduces chain-of-view prompting for viewpoint selection.
+
+On the memory side, 3D-Mem~\cite{huang20243dmem} builds volumetric spatial memories, RA-Mem~\cite{yang2024ramem} enables retrieval-augmented recall over long trajectories, and MemoryExplorer~\cite{wang2026memoryexplorer} structures episodic memory with spatial-temporal annotations for multi-goal exploration on LMEE-Bench~\cite{khanna2024goatbench}, the benchmark we adopt.
+
+These methods improve what the agent does with gathered information. We improve what information gets gathered. The two directions are complementary: our search module can replace the navigation component in any of these pipelines.
+
+\subsection{World Models for Navigation}
+
+Predicting unseen space before acting is a natural idea. Imagine Before Go~\cite{zhang2024imaginebefore} trains a generative map to hallucinate unvisited regions. ImagineNav~\cite{zhao2024imaginenav} and WMNav~\cite{nie2025wmnav} prompt VLMs to imagine future states for frontier evaluation. UniWM~\cite{cheng2026uniwm} unifies foresight and planning in a single multimodal backbone. FrontierNet~\cite{sun2025frontiernet} learns to predict frontier utility from raw observations.
+
+These methods use predictions \emph{for planning}: they imagine desirable states and navigate toward them. We use predictions \emph{for calibration}: the value lies not in what the agent predicts, but in how wrong it turns out to be. This distinction is fundamental: planning from predictions fails silently when predictions are wrong, whereas calibration from prediction errors explicitly detects and adapts to failure.
+
+\subsection{Positioning}
+
+Table~\ref{tab:qualitative} summarizes the landscape. PEC-Nav is the only method that combines adaptive search, language-driven goals, follow-up QA, zero-shot operation, and world-model prediction within a single pipeline.
+
+\begin{table*}[t]
+\centering
+\caption{Qualitative comparison across key design dimensions. \textbf{Adapt.}: search adapts during episode. \textbf{QA}: follow-up question answering. \textbf{ZS}: zero-shot. \textbf{WM}: world model prediction. PEC-Nav uniquely combines all five capabilities.}
+\label{tab:qualitative}
+\vspace{1mm}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccc}
+\toprule
+\textbf{Method} & \textbf{Venue} & \textbf{Goal} & \textbf{Search} & \textbf{Adapt.} & \textbf{Memory} & \textbf{QA} & \textbf{ZS} & \textbf{WM} & \textbf{Benchmark} \\
+\midrule
+SemExp~\cite{chaplot2020semexp} & NeurIPS'20 & Category & Learned policy & $\times$ & Semantic map & $\times$ & $\times$ & $\times$ & MP3D \\
+CoW~\cite{gadre2023cow} & CoRL'23 & Text & CLIP frontier & $\times$ & --- & $\times$ & \checkmark & $\times$ & PASTURE \\
+ESC~\cite{zhou2023esc} & ICML'23 & Text & LLM + frontier & $\times$ & --- & $\times$ & \checkmark & $\times$ & HM3D \\
+VLFM~\cite{yokoyama2024vlfm} & ICRA'24 & Text & VLM frontier & $\times$ & --- & $\times$ & \checkmark & $\times$ & HM3D \\
+Img.B.Go~\cite{zhang2024imaginebefore} & CVPR'24 & Category & Gen.\ map & $\times$ & Pred.\ map & $\times$ & $\times$ & \checkmark & MP3D \\
+Explore-EQA~\cite{ren2024exploreeqa} & CVPR'24 & Question & VLM frontier & $\times$ & --- & \checkmark & \checkmark & $\times$ & HM-EQA \\
+SG-Nav~\cite{yin2024sgnav} & NeurIPS'24 & Text & 3D scene graph & $\times$ & Scene graph & $\times$ & \checkmark & $\times$ & HM3D \\
+GraphEQA~\cite{saxena2025grapheqa} & ICRA'25 & Question & Scene graph & $\times$ & 3D graph & \checkmark & \checkmark & $\times$ & OpenEQA \\
+Fine-EQA~\cite{jiang2025fineeqa} & ICCV'25 & Question & Hybrid & $\times$ & --- & \checkmark & $\times$ & $\times$ & EXPRESS \\
+UniGoal~\cite{yin2025unigoal} & CVPR'25 & Any & Universal & $\times$ & --- & $\times$ & \checkmark & $\times$ & HM3D \\
+ToolEQA~\cite{wang2025tooleqa} & 2025 & Question & Tool-guided & $\times$ & --- & \checkmark & $\times$ & $\times$ & HM-EQA \\
+Mem-Centric~\cite{zhai2025memorycentric} & 2025 & Question & Planner & $\times$ & Feedback mem. & \checkmark & $\times$ & $\times$ & HM-EQA \\
+UniWM~\cite{cheng2026uniwm} & 2026 & Visual & World model & $\times$ & Latent mem. & $\times$ & $\times$ & \checkmark & GoStanford \\
+SCOPE~\cite{wang2026scope} & AAAI'26 & Image & Potential graph & $\times$ & Pot.\ graph & $\times$ & \checkmark & $\times$ & MP3D \\
+MemExplorer~\cite{wang2026memoryexplorer} & CVPR'26 & Multi & Frontier+LLM & $\times$ & Episodic bank & \checkmark & \checkmark & $\times$ & LMEE \\
+\midrule
+\textbf{PEC-Nav (Ours)} & --- & \textbf{Question} & \textbf{PEC frontier} & \checkmark & \textbf{Episodic} & \checkmark & \checkmark & \checkmark & \textbf{LMEE} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+

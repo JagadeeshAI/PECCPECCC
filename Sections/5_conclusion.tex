@@ -1,0 +1,5 @@
+\section{Conclusion}
+
+We introduced PEC-Nav, a self-calibrating frontier search mechanism for embodied question answering. The core insight is that prediction errors are more valuable than predictions: by measuring the surprise between anticipated and observed layouts, the agent adapts its confidence and exploration-exploitation balance within a single episode. On LMEE-Bench, PEC-Nav achieves 29.74\% SR and 20.88 SPL with a 4B VLM on one GPU. The correction ablation, where disabling the feedback loop drops SR to 12.75\%, provides the cleanest evidence that \emph{closing the loop} is what matters.
+
+\paragraph{Limitations.} The CORRECT phase relies on the Habitat simulator's ground-truth semantic sensor; replacing it with a learned detector is needed for real-world deployment. The predictor uses prompt-based inference without parameter updates; test-time adaptation could accelerate calibration. Extension to multi-floor environments and persistent cross-episode memory remains open.

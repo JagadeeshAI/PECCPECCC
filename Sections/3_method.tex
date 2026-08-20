@@ -1,0 +1,138 @@
+\section{Method}
+
+Given a natural language instruction, PEC-Nav extracts a structured navigation goal, explores the environment using a self-calibrating frontier search, stores observations in episodic memory, and answers follow-up questions from accumulated memory. Figure~\ref{fig:architecture} provides an overview.
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/Pec-main-architecture.png}
+\caption{Overview of PEC-Nav. \textbf{Phase 1 (Goal Extraction):} GPT-4o parses the natural language instruction into a target category and contextual description. \textbf{Phase 2 (Predict-Explore-Correct Loop):} at each step the agent (A) \textsc{predicts} the semantic layout beyond each frontier via the VLM frontier scorer and semantic predictor, (B) \textsc{selects} a frontier by combining prediction confidence, exploration value, and goal relevance, (C) \textsc{explores} by navigating to the selected frontier, (D) \textsc{corrects} by comparing the prediction against the observation upon arrival and computing the surprise signal, and (E) \textsc{decides} whether the target has been found; if not, two feedback signals close the loop by adapting predictor uncertainty ($\sigma_t$) and calibrating the explore-exploit weighting ($w_e$, $w_g$). \textbf{Phase 3 (Memory \& QA):} observations gathered during exploration populate an episodic memory from which follow-up questions are answered.}
+\label{fig:architecture}
+\end{figure*}
+\subsection{Goal Extraction}
+\label{sec:problem}
+
+Unlike standard ObjectNav, where the goal is a category label or image, our agent receives a natural language instruction (e.g., \emph{``Can you find the refrigerator next to the kitchen cabinet?''}), which conveys both spatial context and relational cues. We extract a structured goal using GPT-4o~\cite{openai2024gpt4o}, which receives \emph{only} the instruction text (no scene geometry or ground-truth labels) and outputs a \textbf{target category} (e.g., ``refrigerator'') and a \textbf{contextual description} (e.g., ``likely in a kitchen, near cabinets''). This structured goal drives both frontier scoring and semantic prediction throughout the episode.
+
+\subsection{Predict-Explore-Correct Loop}
+\label{sec:pec}
+
+The agent maintains a top-down occupancy map from egocentric depth observations, identifies frontiers as boundaries between explored and unexplored space, and scores each frontier $f$ using a VLM that produces semantic richness ($r_f$), explorability ($e_f$), goal relevance ($g_{r,f}$), and a potential estimate ($p_f$). Scores decay exponentially ($\gamma = 0.95$) to reflect assessment staleness. We inherit this frontier scoring infrastructure from SCOPE~\cite{wang2026scope} and modify it in one way: goal relevance is computed against our text-based goal rather than a reference image.
+
+Our contribution wraps a closed feedback loop around this scoring pipeline. At each decision step, the agent \emph{predicts} what lies beyond each frontier, \emph{explores} the most promising one, and \emph{corrects} its internal model by comparing prediction against observation.
+
+\paragraph{Predict.} For each frontier $f$, the VLM is prompted with the frontier's egocentric view and extracted goal to return the top-3 most likely categories $\{c_1, c_2, c_3\}$ with confidences $\hat{p}_i \in [0,1]$. These are modulated by a self-calibration scale $\sigma_t \in [0.4, 1.0]$:
+\begin{equation}
+    \hat{P}(c_i) = \hat{p}_i \cdot \sigma_t, \quad
+    \hat{P}(\text{other}) = \max\!\left(\epsilon,\, 1 - \textstyle\sum_{i=1}^{3} \hat{p}_i \, \sigma_t\right)
+    \label{eq:predict}
+\end{equation}
+where $\epsilon = 10^{-3}$ prevents zero probabilities. When prior predictions have been accurate, $\sigma_t \approx 1.0$ and raw VLM confidences pass through; when predictions have been consistently wrong, $\sigma_t$ decreases, flattening the distribution toward uniform. The update rule for $\sigma_t$ is derived below. Each $\hat{P}_f$ is stored keyed by frontier identity for later correction.
+
+\paragraph{Explore.} The agent selects $f^* = \arg\max_f \mathrm{val}'(f)$ and navigates toward it using a point-goal controller. Egocentric RGB observations at each step are recorded into an episodic memory buffer with spatial-temporal coordinates.
+
+\paragraph{Correct.} When the agent arrives within $R = 3.0$\,m of a previously-predicted frontier $f$, the correction phase fires. The distance is computed on the $(x,z)$ ground plane after transforming the agent's position from the simulator frame to the map frame:
+\begin{equation}
+    d = \left\lVert \big(w_f^{(x)}, w_f^{(z)}\big) - \big(\mathrm{pts}_{\text{norm}}^{(x)}, \mathrm{pts}_{\text{norm}}^{(z)}\big) \right\rVert_2
+    \label{eq:arrival}
+\end{equation}
+
+Upon arrival, the agent constructs an observed distribution $Q$ over the same category set $C = \{c_1, c_2, c_3, \text{other}\}$ from semantic detections near $f$:
+\begin{equation}
+    Q(c) = \frac{\mathrm{count}(c) + \epsilon}{\sum_{c' \in C} \big(\mathrm{count}(c') + \epsilon\big)}
+    \label{eq:observed}
+\end{equation}
+
+The surprise signal is the KL divergence between prediction and observation:
+\begin{equation}
+    D_{\mathrm{KL}}(\hat{P} \,\|\, Q) = \sum_{c \in C} \hat{P}(c) \log \frac{\hat{P}(c)}{Q(c)}
+    \label{eq:kl}
+\end{equation}
+Low $D_{\mathrm{KL}}$ indicates the predictor is well-calibrated; high $D_{\mathrm{KL}}$ signals the agent's model is unreliable and search should adapt.
+
+\subsection{Self-Calibration}
+\label{sec:calibration}
+
+The surprise signal drives two feedback loops through a shared running estimate.
+
+\paragraph{Running surprise.} We maintain an EMA of per-correction KL values:
+\begin{equation}
+    \bar{s}_t = (1 - \beta)\,\bar{s}_{t-1} + \beta \cdot D_{\mathrm{KL}}^{(t)}, \quad \beta = 0.3, \quad \bar{s}_0 = 0
+    \label{eq:ema}
+\end{equation}
+The initialization $\bar{s}_0 = 0$ encodes an optimistic prior: the agent trusts its predictions until evidence accumulates otherwise. We squash to a bounded signal:
+\begin{equation}
+    n_t = 1 - e^{-\bar{s}_t} \in (0, 1)
+    \label{eq:squash}
+\end{equation}
+
+\paragraph{Adapt: predictor confidence.} The calibration signal directly controls $\sigma_t$:
+\begin{equation}
+    \sigma_t = 1 - 0.6\, n_t \in [0.4, 1.0]
+    \label{eq:adapt}
+\end{equation}
+This closes the loop: predictions generate surprise, surprise reduces confidence, reduced confidence produces flatter distributions that generate less extreme surprise. The system converges toward a confidence appropriate for the environment.
+
+\paragraph{Calibrate: exploration-exploitation reweighting.} The frontier value function shifts along the explore-exploit spectrum:
+\begin{align}
+    \mathrm{val}(f) &= w_p \, p_f + w_e \, e_f + w_g \, g_{r,f} \label{eq:calibrate} \\
+    w_p &= 0.5, \quad w_e = 0.3 + 0.2\,n_t, \quad w_g = 0.2 - 0.2\,n_t \notag
+\end{align}
+Weights sum to 1.0 for all $n_t$. When predictions are unreliable ($n_t \to 1$), $w_e$ reaches 0.5 and $w_g$ drops to zero: the agent broadens exploration. When predictions are reliable ($n_t \approx 0$), the agent exploits toward the goal. A soft visit penalty discourages unproductive revisitation:
+\begin{equation}
+    \mathrm{val}'(f) = \frac{\mathrm{val}(f)}{1 + 0.5 \cdot \mathrm{visits}(f)}
+    \label{eq:visitpenalty}
+\end{equation}
+
+Algorithm~\ref{alg:pecnav} summarizes the complete decision cycle.
+
+\begin{algorithm}[H]
+\caption{PEC-Nav decision cycle}
+\label{alg:pecnav}
+\begin{algorithmic}[1]
+\REQUIRE Frontiers $\mathcal{F}$, goal $g$, state $(\sigma_t, n_t, \bar{s}_t)$
+\ENSURE Selected frontier $f^*$, updated state
+\FOR{each $f \in \mathcal{F}$}
+    \STATE $p_f, e_f, g_{r,f} \leftarrow \text{VLMScore}(f, g)$
+    \STATE $\hat{P}_f \leftarrow \text{PredictLayout}(f, g, \sigma_t)$ \COMMENT{Eq.~\ref{eq:predict}}
+    \STATE $\mathrm{val}'(f) \leftarrow$ Eq.~\ref{eq:calibrate}--\ref{eq:visitpenalty}
+\ENDFOR
+\STATE $f^* \leftarrow \arg\max_{f} \mathrm{val}'(f)$; navigate toward $f^*$
+\IF{$d(f') \le R$ for any previously-scored $f'$}
+    \STATE $Q \leftarrow \text{ObservedLayout}(f')$ \COMMENT{Eq.~\ref{eq:observed}}
+    \STATE $\bar{s}_t \leftarrow (1{-}\beta)\bar{s}_{t-1} + \beta \cdot D_{\mathrm{KL}}(\hat{P}_{f'} \| Q)$
+    \STATE $n_t \leftarrow 1 - e^{-\bar{s}_t}$; \quad $\sigma_t \leftarrow 1 - 0.6 n_t$
+    \STATE update $w_e, w_g$ via $n_t$
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Memory, QA, and Implementation}
+\label{sec:memory}
+
+During navigation, every egocentric RGB observation is stored with spatial-temporal coordinates. After exploration, follow-up questions are answered by retrieving relevant observations and reasoning over them. The memory and QA modules are identical across all experiments, with only search varying, so any change in answer quality is attributable solely to search.
+
+All VLM inference uses Qwen3-VL-4B-Instruct~\cite{bai2025qwen3} in bf16 on a single NVIDIA RTX 3090 (24\,GB). Goal extraction uses GPT-4o~\cite{openai2024gpt4o} via API. Ground-truth category distributions for the CORRECT phase are constructed from the Habitat simulator's semantic sensor, which provides per-pixel labels from HM3D annotations. Table~\ref{tab:hyperparams} lists all hyperparameters; PEC-Nav-specific values were tuned on 5 held-out scenes and fixed for all experiments.
+
+\begin{table}[H]
+\centering
+\caption{PEC-Nav hyperparameters. $\dagger$: inherited from base system.}
+\label{tab:hyperparams}
+\vspace{1mm}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccl}
+\toprule
+\textbf{Symbol} & \textbf{Value} & \textbf{Source} & \textbf{Description} \\
+\midrule
+$\gamma$ & 0.95 & Base$^\dagger$ & Temporal score decay \\
+$\epsilon$ & $10^{-3}$ & PEC-Nav & Distribution smoothing \\
+$R$ & 3.0\,m & PEC-Nav & Arrival detection radius \\
+$\beta$ & 0.3 & PEC-Nav & Surprise EMA coefficient \\
+$\bar{s}_0$ & 0 & PEC-Nav & Initial running surprise \\
+$w_p$ & 0.5 & PEC-Nav & Potential weight (fixed) \\
+$w_e$ range & $[0.3, 0.5]$ & PEC-Nav & Explorability weight (adaptive) \\
+$w_g$ range & $[0.0, 0.2]$ & PEC-Nav & Goal-relevance weight (adaptive) \\
+$\sigma$ range & $[0.4, 1.0]$ & PEC-Nav & Predictor confidence bounds \\
+Visit disc. & 0.5 & PEC-Nav & Revisitation penalty factor \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
