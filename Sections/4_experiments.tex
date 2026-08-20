@@ -42,42 +42,46 @@ Mean corrections fired & \dm{2.1} & \dm{4.8} & \dm{7.3} & \dm{9.6} & \dm{5.4} \\
 \end{table}
 }
 
-\subsection{\textcolor{red}{Main Results}}
-
-\textcolor{red}{Table~\ref{tab:main} is the paper's primary result. It is organised into two blocks that must be read differently. The lower block is a \emph{controlled} comparison: every row runs the identical pipeline, backbone, episode set, goal and landmark extraction, memory, and question-answering module, and differs only in the frontier search module, so any difference between those rows is attributable to search alone. The upper block reports published results on the same split for context. Those methods address multi-goal navigation, in which every object named in the instruction is a terminal goal, whereas our episodes succeed on the target alone; the \textbf{Task} and \textbf{Train} columns record the differences that prevent a direct comparison.}
-
-\textcolor{red}{Within the controlled block, the shape matters more than any individual value. Rows 1 and 2 establish what chance and geometry alone achieve. Row 3 adds static semantic scoring. Row 4 adds landmark-conditioned prediction with verification disabled, and is expected to fall \emph{below} row 3: a predictor that is never corrected commits to its own errors. Row 5 closes the loop and recovers past both. That dip and recovery is the central claim of the paper rendered as a table.}
-
-\begin{table*}[t]
-\centering
-\caption{\textcolor{red}{\textbf{Main results on GOAT-Bench Val Unseen (345 description-goal episodes).} The upper block reports published results for context: $*$ denotes benchmark baselines~\cite{khanna2024goatbench} and $\dagger$ methods evaluated on a 36-scene subset, all of them scored on multi-goal episodes and therefore \emph{not} directly comparable to ours. The lower block is the controlled comparison, in which the pipeline is held fixed and only the search module varies. \textbf{PE}$_{\text{succ}}$ is path efficiency over successful episodes, \textbf{Corr.}\ the mean corrections fired per episode, and \textbf{Ver.}\ the fraction of predicted landmarks subsequently observed; the last three are undefined for methods we did not run and for rows without a predictor.}}
-\label{tab:main}
-\vspace{1mm}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}rlllccccccc@{}}
-\toprule
-& \textbf{Method} & \textbf{Task} & \textbf{Train} & \textbf{Backbone} & \textbf{SR} $\uparrow$ & \textbf{SPL} $\uparrow$ & \textbf{PE}$_{\text{succ}}$ & \textbf{Steps} & \textbf{Corr.} & \textbf{Ver.} \\
-\midrule
-\multicolumn{11}{l}{\emph{Published results, reported for context (multi-goal task; not directly comparable)}} \\
-& Modular GOAT$^*$ & multi-goal & in-domain & modular & \textcolor{blue}{24.9} & \textcolor{blue}{17.2} & --- & --- & --- & --- \\
-& Modular CoW$^*$~\cite{gadre2023cow} & multi-goal & none & CLIP & \textcolor{blue}{16.1} & \textcolor{blue}{10.4} & --- & --- & --- & --- \\
-& SenseAct-NN Skill Chain$^*$ & multi-goal & RL & --- & \textcolor{blue}{29.5} & \textcolor{blue}{11.3} & --- & --- & --- & --- \\
-& SenseAct-NN Monolithic$^*$ & multi-goal & RL & --- & \textcolor{blue}{12.3} & \textcolor{blue}{6.8} & --- & --- & --- & --- \\
-& Explore-EQA$^\dagger$~\cite{ren2024exploreeqa} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{23.02} & \textcolor{blue}{14.43} & --- & --- & --- & --- \\
-& 3D-Mem$^\dagger$~\cite{huang20243dmem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{37.05} & \textcolor{blue}{20.26} & --- & --- & --- & --- \\
-& RA-Mem$^\dagger$~\cite{yang2024ramem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{42.81} & \textcolor{blue}{21.95} & --- & --- & --- & --- \\
-& MemoryExplorer$^\dagger$~\cite{wang2026memoryexplorer} & multi-goal & RFT & Qwen2.5-VL-7B & \textcolor{blue}{46.40} & \textcolor{blue}{28.03} & --- & --- & --- & --- \\
-\midrule
-\multicolumn{11}{l}{\emph{Controlled comparison (this work): identical pipeline, only the search module varies}} \\
-1 & Random frontier & landmark-cond. & none & Qwen3-VL-4B & \dm{8.1} & \dm{4.2} & \dm{41.2} & \dm{312} & --- & --- \\
-2 & Nearest frontier~\cite{yamauchi1997frontier} & landmark-cond. & none & Qwen3-VL-4B & \dm{11.6} & \dm{7.8} & \dm{52.6} & \dm{274} & --- & --- \\
-3 & Static semantic~\cite{wang2026scope} & landmark-cond. & none & Qwen3-VL-4B & \dm{21.3} & \dm{15.1} & \dm{63.4} & \dm{231} & --- & --- \\
-4 & \quad + prediction, no correction & landmark-cond. & none & Qwen3-VL-4B & \dm{12.8} & \dm{8.4} & \dm{55.1} & \dm{258} & \dm{0} & --- \\
-5 & \textbf{PEC-Nav (Ours)} & landmark-cond. & \textbf{none} & \textbf{Qwen3-VL-4B} & \dm{\textbf{29.7}} & \dm{\textbf{20.9}} & \dm{\textbf{70.2}} & \dm{\textbf{219}} & \dm{\textbf{6.4}} & \dm{\textbf{58.3}} \\
-\bottomrule
-\end{tabular}%
-}
-\end{table*}
+% ---------------------------------------------------------------
+% COMMENTED OUT: main results table (GOAT-Bench context + controlled
+% comparison). Restore by removing the leading %% from the lines below.
+% ---------------------------------------------------------------
+% \subsection{\textcolor{red}{Main Results}}
+%
+% \textcolor{red}{Table~\ref{tab:main} is the paper's primary result. It is organised into two blocks that must be read differently. The lower block is a \emph{controlled} comparison: every row runs the identical pipeline, backbone, episode set, goal and landmark extraction, memory, and question-answering module, and differs only in the frontier search module, so any difference between those rows is attributable to search alone. The upper block reports published results on the same split for context. Those methods address multi-goal navigation, in which every object named in the instruction is a terminal goal, whereas our episodes succeed on the target alone; the \textbf{Task} and \textbf{Train} columns record the differences that prevent a direct comparison.}
+%
+% \textcolor{red}{Within the controlled block, the shape matters more than any individual value. Rows 1 and 2 establish what chance and geometry alone achieve. Row 3 adds static semantic scoring. Row 4 adds landmark-conditioned prediction with verification disabled, and is expected to fall \emph{below} row 3: a predictor that is never corrected commits to its own errors. Row 5 closes the loop and recovers past both. That dip and recovery is the central claim of the paper rendered as a table.}
+%
+% \begin{table*}[t]
+% \centering
+% \caption{\textcolor{red}{\textbf{Main results on GOAT-Bench Val Unseen (345 description-goal episodes).} The upper block reports published results for context: $*$ denotes benchmark baselines~\cite{khanna2024goatbench} and $\dagger$ methods evaluated on a 36-scene subset, all of them scored on multi-goal episodes and therefore \emph{not} directly comparable to ours. The lower block is the controlled comparison, in which the pipeline is held fixed and only the search module varies. \textbf{PE}$_{\text{succ}}$ is path efficiency over successful episodes, \textbf{Corr.}\ the mean corrections fired per episode, and \textbf{Ver.}\ the fraction of predicted landmarks subsequently observed; the last three are undefined for methods we did not run and for rows without a predictor.}}
+% \label{tab:main}
+% \vspace{1mm}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{@{}rlllccccccc@{}}
+% \toprule
+% & \textbf{Method} & \textbf{Task} & \textbf{Train} & \textbf{Backbone} & \textbf{SR} $\uparrow$ & \textbf{SPL} $\uparrow$ & \textbf{PE}$_{\text{succ}}$ & \textbf{Steps} & \textbf{Corr.} & \textbf{Ver.} \\
+% \midrule
+% \multicolumn{11}{l}{\emph{Published results, reported for context (multi-goal task; not directly comparable)}} \\
+% & Modular GOAT$^*$ & multi-goal & in-domain & modular & \textcolor{blue}{24.9} & \textcolor{blue}{17.2} & --- & --- & --- & --- \\
+% & Modular CoW$^*$~\cite{gadre2023cow} & multi-goal & none & CLIP & \textcolor{blue}{16.1} & \textcolor{blue}{10.4} & --- & --- & --- & --- \\
+% & SenseAct-NN Skill Chain$^*$ & multi-goal & RL & --- & \textcolor{blue}{29.5} & \textcolor{blue}{11.3} & --- & --- & --- & --- \\
+% & SenseAct-NN Monolithic$^*$ & multi-goal & RL & --- & \textcolor{blue}{12.3} & \textcolor{blue}{6.8} & --- & --- & --- & --- \\
+% & Explore-EQA$^\dagger$~\cite{ren2024exploreeqa} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{23.02} & \textcolor{blue}{14.43} & --- & --- & --- & --- \\
+% & 3D-Mem$^\dagger$~\cite{huang20243dmem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{37.05} & \textcolor{blue}{20.26} & --- & --- & --- & --- \\
+% & RA-Mem$^\dagger$~\cite{yang2024ramem} & multi-goal & none & Qwen2.5-VL-7B & \textcolor{blue}{42.81} & \textcolor{blue}{21.95} & --- & --- & --- & --- \\
+% & MemoryExplorer$^\dagger$~\cite{wang2026memoryexplorer} & multi-goal & RFT & Qwen2.5-VL-7B & \textcolor{blue}{46.40} & \textcolor{blue}{28.03} & --- & --- & --- & --- \\
+% \midrule
+% \multicolumn{11}{l}{\emph{Controlled comparison (this work): identical pipeline, only the search module varies}} \\
+% 1 & Random frontier & landmark-cond. & none & Qwen3-VL-4B & \dm{8.1} & \dm{4.2} & \dm{41.2} & \dm{312} & --- & --- \\
+% 2 & Nearest frontier~\cite{yamauchi1997frontier} & landmark-cond. & none & Qwen3-VL-4B & \dm{11.6} & \dm{7.8} & \dm{52.6} & \dm{274} & --- & --- \\
+% 3 & Static semantic~\cite{wang2026scope} & landmark-cond. & none & Qwen3-VL-4B & \dm{21.3} & \dm{15.1} & \dm{63.4} & \dm{231} & --- & --- \\
+% 4 & \quad + prediction, no correction & landmark-cond. & none & Qwen3-VL-4B & \dm{12.8} & \dm{8.4} & \dm{55.1} & \dm{258} & \dm{0} & --- \\
+% 5 & \textbf{PEC-Nav (Ours)} & landmark-cond. & \textbf{none} & \textbf{Qwen3-VL-4B} & \dm{\textbf{29.7}} & \dm{\textbf{20.9}} & \dm{\textbf{70.2}} & \dm{\textbf{219}} & \dm{\textbf{6.4}} & \dm{\textbf{58.3}} \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \end{table*}
 
 \subsection{\textcolor{red}{Comparison on LMEE-Bench}}
 
